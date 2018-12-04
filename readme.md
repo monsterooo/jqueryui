@@ -7,3 +7,7 @@
 @@ 一些疑问，需要稍候弄明白的地方
 
 ^^ 当前阅读位置
+
+## 本地配置
+
+static -H '{"Cache-Control": "no-cache, must-revalidate"}'

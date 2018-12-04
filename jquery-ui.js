@@ -119,6 +119,7 @@ $.widget = function( name, base, prototype ) {
 		/**
 		 * 如果传递了参数，并且继承的小部件存在_createWidget
 		 * 方法，那么就调用继承小部件的_createWidget方法
+		 * element => 当前选择创建小部件的元素 $(".dialog")
 		 */
 		if ( arguments.length ) {
 			this._createWidget( options, element );
@@ -149,39 +150,56 @@ $.widget = function( name, base, prototype ) {
 	// We need to make the options hash a property directly on the new instance
 	// otherwise we'll modify the options hash on the prototype that we're
 	// inheriting from
-	// ^^ 当前阅读位置
+	// @@ 没看懂暂时 为何要这样拷贝
 	basePrototype.options = $.widget.extend( {}, basePrototype.options );
+	/**
+	 * 这里比较重要，这里对小部件继承的原型(prototype)函数进行了包装
+	 * 在执行小部件原型方法时，保留了对继承小部件对应方法的调用
+	 */
 	$.each( prototype, function( prop, value ) {
+		// 如果原型的值不是函数，则直接放到proxiedPrototype中
 		if ( !$.isFunction( value ) ) {
 			proxiedPrototype[ prop ] = value;
 			return;
 		}
+		// 如果原型值是一个函数，则对它进行包装
 		proxiedPrototype[ prop ] = ( function() {
+			// 调用超类的方法，调用继承小部件原型上的方法
 			function _super() {
 				return base.prototype[ prop ].apply( this, arguments );
 			}
 
+			// 调用超类的方法，调用继承小部件原型上的方法
 			function _superApply( args ) {
 				return base.prototype[ prop ].apply( this, args );
 			}
 
+			// 实际返回的代理函数
 			return function() {
-				var __super = this._super;
-				var __superApply = this._superApply;
-				var returnValue;
+				var __super = this._super; // 保存当前小部件对象的_super方法
+				var __superApply = this._superApply; // 保存当前小部件对象的_superApply方法
+				var returnValue; // 需要返回的值
 
-				this._super = _super;
-				this._superApply = _superApply;
+				this._super = _super; // 将对应超类的方法放入当前对象中
+				this._superApply = _superApply; // 将对应超类的方法放入当前对象中
 
+				// 执行当前小部件类对应的方法
 				returnValue = value.apply( this, arguments );
 
+				// 执行完小部件对应的方法是，将当前小部件的_super和_superApply还原
 				this._super = __super;
 				this._superApply = __superApply;
 
-				return returnValue;
+				return returnValue;	// 返回执行的值
 			};
 		} )();
 	} );
+	/**
+	 * 构造函数原型继承之基础小部件，继承的对象有如下：
+	 * 一个自定义对象 { constructor, namespace, widgetName, widgetFullName }
+	 * 继承传入进来的原型对象，比如 $.widget( "ui.dialog", {/继承它的处理/} )
+	 * 和widgetEventPrefix @@ 暂不知道具体用处
+	 */
 	constructor.prototype = $.widget.extend( basePrototype, {
 
 		// TODO: remove support for widgetEventPrefix
@@ -199,6 +217,13 @@ $.widget = function( name, base, prototype ) {
 	// are inheriting from it and redefine all of them so that they inherit from
 	// the new version of this widget. We're essentially trying to replace one
 	// level in the prototype chain.
+	/**
+	 * 如果这个小部件被重新定义，
+	 * 那么我们需要找到从它继承的所有小部件并重新定义它们，
+	 * 以便它们从这个小部件的新版本继承。
+	 * 我们实际上是在尝试替换原型链中的一个级别。
+	 * @@ 暂时不涉及这个地方
+	 */
 	if ( existingConstructor ) {
 		$.each( existingConstructor._childConstructors, function( i, child ) {
 			var childPrototype = child.prototype;
@@ -215,7 +240,7 @@ $.widget = function( name, base, prototype ) {
 	} else {
 		base._childConstructors.push( constructor );
 	}
-
+	// 桥接组件
 	$.widget.bridge( name, constructor );
 
 	return constructor;
@@ -251,14 +276,20 @@ $.widget.extend = function( target ) {
 	return target;
 };
 
+/**
+ * 桥接方法，它桥接了$.widget()和jQuery API的中间件
+ * name 插件名称
+ * object 插件构造函数
+ */
 $.widget.bridge = function( name, object ) {
-	var fullName = object.prototype.widgetFullName || name;
+	var fullName = object.prototype.widgetFullName || name; // 插件全名
+	// 将小部件挂载到jQuery原型上
 	$.fn[ name ] = function( options ) {
-		var isMethodCall = typeof options === "string";
+		var isMethodCall = typeof options === "string"; // 判断是否是一个方法调用，参数为字符串则判定为方法调用比如：$('.a').dialog('close')
 		var args = widgetSlice.call( arguments, 1 );
 		var returnValue = this;
 
-		if ( isMethodCall ) {
+		if ( isMethodCall ) { // 如果是调用小部件的方法
 
 			// If this is an empty collection, we need to have the instance method
 			// return undefined instead of the jQuery instance
@@ -298,18 +329,20 @@ $.widget.bridge = function( name, object ) {
 		} else {
 
 			// Allow multiple hashes to be passed on init
+			// 允许在init上传递多个哈希值
 			if ( args.length ) {
 				options = $.widget.extend.apply( null, [ options ].concat( args ) );
 			}
-
+			// 遍历小部件
 			this.each( function() {
-				var instance = $.data( this, fullName );
+				var instance = $.data( this, fullName ); // 获取小部件实例，为初始化时为undefined
 				if ( instance ) {
 					instance.option( options || {} );
 					if ( instance._init ) {
 						instance._init();
 					}
 				} else {
+					// 创建小部件实例，并且保存到当前选择对象的fullName中 this => 当前选择的元素
 					$.data( this, fullName, new object( options, this ) );
 				}
 			} );
@@ -336,10 +369,10 @@ $.Widget.prototype = {
 	},
 
 	_createWidget: function( options, element ) {
-		element = $( element || this.defaultElement || this )[ 0 ];
-		this.element = $( element );
+		element = $( element || this.defaultElement || this )[ 0 ]; // 承载小部件的元素
+		this.element = $( element ); // 小部件元素
 		this.uuid = widgetUuid++;
-		this.eventNamespace = "." + this.widgetName + this.uuid;
+		this.eventNamespace = "." + this.widgetName + this.uuid; // .dialog0 事件名字空间
 
 		this.bindings = $();
 		this.hoverable = $();
@@ -347,7 +380,10 @@ $.Widget.prototype = {
 		this.classesElementLookup = {};
 
 		if ( element !== this ) {
-			$.data( element, this.widgetFullName, this );
+			$.data( element, this.widgetFullName, this ); // 当前对象实例放入元素对应小部件名称中
+			/**
+			 * 绑定事件
+			 */
 			this._on( true, this.element, {
 				remove: function( event ) {
 					if ( event.target === element ) {
@@ -355,21 +391,28 @@ $.Widget.prototype = {
 					}
 				}
 			} );
+
+			// 获取元素所在的document，保存在this.document
 			this.document = $( element.style ?
 
 				// Element within the document
+				// 元素在document中
 				element.ownerDocument :
 
 				// Element is window or document
+				// 元素是window或document
 				element.document || element );
+			// 获取当前的window
 			this.window = $( this.document[ 0 ].defaultView || this.document[ 0 ].parentWindow );
 		}
-
+		
+		// 获取options
 		this.options = $.widget.extend( {},
 			this.options,
 			this._getCreateOptions(),
 			options );
-
+		
+		// 调用小部件的_create函数
 		this._create();
 
 		if ( this.options.disabled ) {
@@ -601,7 +644,9 @@ $.Widget.prototype = {
 		options.element.toggleClass( this._classes( options ), add );
 		return this;
 	},
-
+	/**
+	 * 
+	 */
 	_on: function( suppressDisabledCheck, element, handlers ) {
 		var delegateElement;
 		var instance = this;
@@ -620,34 +665,46 @@ $.Widget.prototype = {
 			delegateElement = this.widget();
 		} else {
 			element = delegateElement = $( element );
-			this.bindings = this.bindings.add( element );
+			this.bindings = this.bindings.add( element ); // 当前元素放入到 bindings 的jQuery对象中
 		}
-
+		// 遍历所有的 handlers 事件
 		$.each( handlers, function( event, handler ) {
+			// 事件代理
 			function handlerProxy() {
 
 				// Allow widgets to customize the disabled handling
 				// - disabled as an array instead of boolean
 				// - disabled class as method for disabling individual parts
+				/**
+				 * 允许小部件自定义禁用控件，
+				 * 将禁用控件作为数组处理，
+				 * 而不是将布尔禁用类作为禁用单个部件的方法
+				 * 如果_on方法suppressDisabledCheck为true，并且options.disabled为true。则为小部件添加ui-state-disabled类
+				 */
 				if ( !suppressDisabledCheck &&
 						( instance.options.disabled === true ||
 						$( this ).hasClass( "ui-state-disabled" ) ) ) {
 					return;
 				}
+				/**
+				 * 如果事件处理对象是字符串，则从小部件对象上找对应的方法
+				 * 或者是一个函数则直接执行，传入事件的参数
+				 */
 				return ( typeof handler === "string" ? instance[ handler ] : handler )
 					.apply( instance, arguments );
 			}
 
 			// Copy the guid so direct unbinding works
+			// 复制guid以便直接解除绑定
 			if ( typeof handler !== "string" ) {
 				handlerProxy.guid = handler.guid =
 					handler.guid || handlerProxy.guid || $.guid++;
 			}
-
+			// @@ 不是很明确，正则不太好 = = ！
 			var match = event.match( /^([\w:-]*)\s*(.*)$/ );
-			var eventName = match[ 1 ] + instance.eventNamespace;
+			var eventName = match[ 1 ] + instance.eventNamespace; // "remove.dialog0"
 			var selector = match[ 2 ];
-
+			// @@ 这个selector 格式还不太明确
 			if ( selector ) {
 				delegateElement.on( eventName, selector, handlerProxy );
 			} else {
@@ -11864,7 +11921,7 @@ $.widget( "ui.dialog", {
 	_destroy: function() {
 		var next,
 			originalPosition = this.originalPosition;
-
+		
 		this._untrackInstance();
 		this._destroyOverlay();
 
