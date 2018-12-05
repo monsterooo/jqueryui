@@ -1833,7 +1833,7 @@ var mouseHandled = false;
 $( document ).on( "mouseup", function() {
 	mouseHandled = false;
 } );
-
+debugger;
 var widgetsMouse = $.widget( "ui.mouse", {
 	version: "1.12.1",
 	options: {
@@ -1843,7 +1843,7 @@ var widgetsMouse = $.widget( "ui.mouse", {
 	},
 	_mouseInit: function() {
 		var that = this;
-
+		// 为元素添加 mousedown 和 click事件
 		this.element
 			.on( "mousedown." + this.widgetName, function( event ) {
 				return that._mouseDown( event );
@@ -1871,18 +1871,21 @@ var widgetsMouse = $.widget( "ui.mouse", {
 	},
 
 	_mouseDown: function( event ) {
+		debugger;
 
 		// don't let more than one widget handle mouseStart
+		// 为了不让多个小部件同时处理mouse相关事件，直到一个小部件执行了mouseup才可以继续执行
 		if ( mouseHandled ) {
 			return;
 		}
 
-		this._mouseMoved = false;
+		this._mouseMoved = false; // 设置 mouseMoved 标志为 false
 
 		// We may have missed mouseup (out of window)
+		// 可能在窗口外丢失了mouseup
 		( this._mouseStarted && this._mouseUp( event ) );
 
-		this._mouseDownEvent = event;
+		this._mouseDownEvent = event; // 保留 mouseDown 时 event 对象
 
 		var that = this,
 			btnIsLeft = ( event.which === 1 ),
@@ -1923,18 +1926,33 @@ var widgetsMouse = $.widget( "ui.mouse", {
 			return that._mouseUp( event );
 		};
 
+		// 在document上绑定 mousemove 和 mouseup
 		this.document
 			.on( "mousemove." + this.widgetName, this._mouseMoveDelegate )
 			.on( "mouseup." + this.widgetName, this._mouseUpDelegate );
 
 		event.preventDefault();
 
-		mouseHandled = true;
+		mouseHandled = true; // 正在处理鼠标事件
 		return true;
 	},
 
+	/**
+	 * event.which
+	 * 0: 无
+	 * 1: 左键
+	 * 2: 中间滚轮（如果有的话）
+	 * 3: 右键
+	 * 
+	 * event.button
+	 * 0：主按键被按下，通常指鼠标左键 or the un-initialized state
+	 * 1：辅助按键被按下，通常指鼠标滚轮 or the middle button (if present)
+	 * 2：次按键被按下，通常指鼠标右键
+	 * 3：第四个按钮被按下，通常指浏览器后退按钮
+	 * 4：第五个按钮被按下，通常指浏览器的前进按钮
+	 */
 	_mouseMove: function( event ) {
-
+		debugger;
 		// Only check for mouseups outside the document if you've moved inside the document
 		// at least once. This prevents the firing of mouseup in the case of IE<9, which will
 		// fire a mousemove event if content is placed under the cursor. See #7778
@@ -1961,7 +1979,7 @@ var widgetsMouse = $.widget( "ui.mouse", {
 			}
 		}
 
-		if ( event.which || event.button ) {
+		if ( event.which || event.button ) { // 鼠标有键被按下设置 _mouseMoved 变量为true
 			this._mouseMoved = true;
 		}
 
@@ -1975,7 +1993,7 @@ var widgetsMouse = $.widget( "ui.mouse", {
 				( this._mouseStart( this._mouseDownEvent, event ) !== false );
 			( this._mouseStarted ? this._mouseDrag( event ) : this._mouseUp( event ) );
 		}
-
+		
 		return !this._mouseStarted;
 	},
 
@@ -11788,7 +11806,6 @@ var widgetsDatepicker = $.datepicker;
 
 
 // dialog weight
-debugger;
 $.widget( "ui.dialog", {
 	version: "1.12.1",
 	options: {
